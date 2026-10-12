@@ -96,6 +96,28 @@ class DanbooruClient:
         data = await self.get("counts/posts", {"tags": tags or None})
         return data.get("counts", {}).get("posts")
 
+    async def estimate_post_count(self, tags: str = "") -> Optional[int]:
+        """Estimate post count approximately when counts/posts times out.
+        Uses post ID sampling density from the first page of results."""
+        try:
+            posts = await self.get("posts", {"tags": tags or None, "limit": 100, "only": "id"})
+            if not posts or not isinstance(posts, list):
+                return 0
+            if len(posts) < 100:
+                return len(posts)
+            id_first = posts[0].get("id")
+            id_last = posts[-1].get("id")
+            if not id_first or not id_last:
+                return None
+            delta = id_first - id_last
+            if delta <= 0:
+                return len(posts)
+            density = len(posts) / delta
+            return int(density * id_first)
+        except Exception as e:
+            log.warning("Error estimating post count for tags '%s': %s", tags, e)
+            return None
+
     async def get_tag(self, name: str) -> dict | None:
         results = await self.get("tags", {"search[name]": name, "search[hide_empty]": "no", "only": "id,name,post_count,category,is_deprecated,antecedent_alias,wiki_page", "limit": 1})
         return results[0] if results else None

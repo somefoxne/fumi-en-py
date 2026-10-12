@@ -52,11 +52,19 @@ class ReportCommands(commands.Cog, name="Reports"):
             search_url = f"{self.booru_url}/posts?tags={tags}" if tags else f"{self.booru_url}/posts"
 
             if count is None:
+                estimated = await self.bot.booru.estimate_post_count(tags=tags)
+                if estimated is not None:
+                    est_str = f"📊 **Estimated count:** `~{estimated:,}` posts *(based on ID sampling density)*\n\n"
+                else:
+                    est_str = ""
+
                 embed = discord.Embed(
-                    title="Unable to Calculate Post Count",
+                    title="📊 Unable to Calculate Exact Post Count",
                     description=(
-                        f"⚠️ Danbooru timed out calculating the post count for {label}.\n\n"
-                        f"**Reason:** Searches with negative tags (`-`) or wildcards (`*`) can be too expensive for the database to count.\n"
+                        f"⚠️ Danbooru timed out calculating the exact count for {label}.\n\n"
+                        f"{est_str}"
+                        f"**Reason:** Complex searches with negative tags (`-`) or wildcards (`*`) "
+                        f"are too resource-intensive for Danbooru database to scan accurately.\n"
                         f"🔗 [Click here to view search results on Danbooru]({search_url})"
                     ),
                     color=0xFEE75C,
