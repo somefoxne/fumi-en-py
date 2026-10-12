@@ -5,6 +5,7 @@ Combines architecture from cr-bot and fumimi-discord.
 Uses settings.py for centralized environment configuration.
 """
 
+import asyncio
 import logging
 import aiohttp
 from typing import Any, Optional
@@ -98,22 +99,51 @@ class DanbooruClient:
 
     async def estimate_post_count(self, tags: str = "") -> Optional[int]:
         """Estimate post count approximately when counts/posts times out.
-        Uses post ID sampling density from the first page of results."""
+        Uses 5-point stratified sampling of post ID density across historical milestones."""
         try:
-            posts = await self.get("posts", {"tags": tags or None, "limit": 100, "only": "id"})
-            if not posts or not isinstance(posts, list):
+            # Milestone 1: 50 newest posts
+            p1 = await self.get("posts", {"tags": tags or None, "limit": 50, "only": "id"})
+            if not p1 or not isinstance(p1, list):
                 return 0
-            if len(posts) < 100:
-                return len(posts)
-            id_first = posts[0].get("id")
-            id_last = posts[-1].get("id")
-            if not id_first or not id_last:
-                return None
-            delta = id_first - id_last
-            if delta <= 0:
-                return len(posts)
-            density = len(posts) / delta
-            return int(density * id_first)
+            if len(p1) < 50:
+                return len(p1)
+
+            max_id = p1[0].get("id")
+            if not max_id or max_id <= 0:
+                return len(p1)
+
+            num_intervals = 5
+            interval_width = max_id / num_intervals
+
+            # Calculate interval 1 (newest: 80% max_id -> 100% max_id)
+            d1_delta = p1[0]["id"] - p1[-1]["id"]
+            if d1_delta > 0:
+                d1 = len(p1) / d1_delta
+                est_total = d1 * interval_width
+            else:
+                est_total = float(len(p1))
+
+            # 4 historical milestones (80%, 60%, 40%, 20% of max_id)
+            milestones = [0.8, 0.6, 0.4, 0.2]
+            tasks = [
+                self.get("posts", {"tags": tags or None, "limit": 50, "page": f"b{int(max_id * frac)}", "only": "id"})
+                for frac in milestones
+            ]
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+
+            for res in results:
+                if isinstance(res, list) and res:
+                    if len(res) < 50:
+                        est_total += len(res)
+                    else:
+                        delta = res[0]["id"] - res[-1]["id"]
+                        if delta > 0:
+                            density = len(res) / delta
+                            est_total += density * interval_width
+                        else:
+                            est_total += len(res)
+
+            return max(int(est_total), len(p1))
         except Exception as e:
             log.warning("Error estimating post count for tags '%s': %s", tags, e)
             return None

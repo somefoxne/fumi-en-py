@@ -54,7 +54,7 @@ class ReportCommands(commands.Cog, name="Reports"):
             if count is None:
                 estimated = await self.bot.booru.estimate_post_count(tags=tags)
                 if estimated is not None:
-                    est_str = f"📊 **Estimated count:** `~{estimated:,}` posts *(based on ID sampling density)*\n\n"
+                    est_str = f"📊 **Estimated count:** `~{estimated:,}` posts *(5-point ID sampling)*\n\n"
                 else:
                     est_str = ""
 
