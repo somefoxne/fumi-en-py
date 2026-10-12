@@ -96,12 +96,10 @@ class UtilityCommands(commands.Cog, name="Utility"):
             )
 
     # ── /say ──────────────────────────────────────────────────────────────────
-    @app_commands.command(name="say", description="Make Fumimi say a message (requires Manage Messages)")
+    @app_commands.command(name="say", description="Make Fumimi say a message")
     @app_commands.describe(message="The message to send")
-    @app_commands.default_permissions(manage_messages=True)
     async def cmd_say(self, interaction: discord.Interaction, message: str):
-        await interaction.response.send_message("Sent!", ephemeral=True)
-        await interaction.channel.send(message)
+        await interaction.response.send_message(message)
 
     # ── !sync ─────────────────────────────────────────────────────────────────
     @commands.command(name="sync")
